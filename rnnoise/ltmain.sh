@@ -1,0 +1,1 @@
+/home/linuxbrew/.linuxbrew/Cellar/libtool/2.4.6_5/share/libtool/build-aux/ltmain.sh

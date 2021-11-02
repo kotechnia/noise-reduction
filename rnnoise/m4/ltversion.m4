@@ -1,0 +1,1 @@
+/home/linuxbrew/.linuxbrew/Cellar/libtool/2.4.6_5/share/aclocal/ltversion.m4
