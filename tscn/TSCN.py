@@ -24,8 +24,10 @@ class TSCN_Module(nn.Module):
     def __init__(self, device, n_cme_blocks=3, n_csr_blocks=2, multi=False):
         """
 
-        :param n_cme_blocks: number of cme blocks
-        :param n_csr_blocks: number of csr blocks
+        :param device: The device where to train the network
+        :param n_cme_blocks: number of CME blocks
+        :param n_csr_blocks: number of CSR blocks
+        :param multi: decides whether to train on multi GPU or single
         """
         super(TSCN_Module, self).__init__()
 
@@ -80,51 +82,63 @@ class TSCN:
             train_limit=None, val_limit=None, test_limit=None
                  ):
 
+        # parameter setup
         self.tscn = TSCN_Module(device=device, multi=multi).to(device)
         self.device = device
         self.multi = multi
 
-        self.train = train
-        self.val = val
-        self.infer = infer
-        self.transfer = transfer
-        self.estoi = estoi
+        self.train = train  # if true, trains the network
+        self.val = val  # if true, uses validation data when training
+        self.infer = infer  # if true, gets the prediction of the networks test data
+        self.transfer = transfer  # if true, loads the pretrained model weights
+        self.estoi = estoi  # if true, gets the ESTOI of the test data
+
+        # selects which model to train
+        # options = "cme", "finetune", "csr", None
+        # if None, trains the entire model
         self.model_select = model_select
 
-        self.sr = sr
-        self.sec = sec
-        self.cutoff = cutoff
-        self.remove = remove
+        self.sr = sr  # sampling rate
+        self.sec = sec  # the length of training data in seconds
+        self.cutoff = cutoff  # if true, cuts off the remainder which is smaller than sec
+        self.remove = remove  # if true, removes all the previously generated data
 
-        self.weight_pth = weight_pth
-        self.infer_pth = infer_pth
-        self.infer_len = infer_len
-        self.cme_filename = cme_filename
-        self.csr_filename = csr_filename
+        self.weight_pth = weight_pth  # path to weight file
+        self.infer_pth = infer_pth  # path where to save the predicted output
+        self.infer_len = infer_len  # the number of files to predict, if 0 predicts the entire test data
+        self.cme_filename = cme_filename  # filename for CME weights
+        self.csr_filename = csr_filename  # filename for CSR weights
 
+        # epochs
         self.cme_epochs = cme_epochs
         self.finetuning_epochs = finetuning_epochs
         self.csr_epochs = csr_epochs
-        self.batch_size = batch_size
-        self.loss_weight_coefficient = loss_weight_coefficient
 
+        self.batch_size = batch_size
+
+        self.loss_weight_coefficient = loss_weight_coefficient  # gives penalty to the CME loss
+
+        # learning rates
         self.cme_lr = cme_lr
         self.finetuning_lr = finetuning_lr
         self.csr_lr = csr_lr
+
+        # optimizers
         self.cme_optim = Adam(lr=cme_lr, params=self.tscn.cme.parameters())
         self.finetune_optim = Adam(lr=finetuning_lr, params=self.tscn.csr.parameters())
         self.csr_optim = Adam(params=self.tscn.parameters(), lr=csr_lr)
 
-        self.all_data = all_data
-        self.db_update = db_update
-        self.database_path = database_path
+        self.all_data = all_data  # if true, use all data from DB
+        self.db_update = db_update  # if true, updates DB's training flag
+        self.database_path = database_path  # path to DB setting file
 
+        # number of data to use
         self.train_limit = train_limit
         self.val_limit = val_limit
         self.test_limit = test_limit
 
-        self.n_fft = n_fft
-        self.win_len = win_len
+        self.n_fft = n_fft  # points for FFT
+        self.win_len = win_len  # window length of Hamming window
 
         self.train_dataloader = DB('TSCN',
                               train_val_test='TR',
@@ -143,7 +157,7 @@ class TSCN:
                              limit=self.test_limit,
                              all_data=self.all_data,
                              db_update=self.db_update,
-                             database_path='/home/jongmin/train/dataloader/database_connect_info.json')
+                             database_path=self.database_path)
 
         if self.train:
             self.train_sd = [s for s, _ in self.train_dataloader]
@@ -167,9 +181,11 @@ class TSCN:
             self.test_loader = DataLoader(testset, batch_size=1)
 
     def fit(self):
+        # make sure all the paths exists
         Path(self.weight_pth).mkdir(parents=True, exist_ok=True)
         Path(self.infer_pth).mkdir(parents=True, exist_ok=True)
 
+        # load pretrained weights
         if self.transfer:
             if self.multi:
                 self.tscn.cme.module.load_state_dict(torch.load(os.path.join(self.weight_pth, self.cme_filename)))
@@ -214,6 +230,16 @@ class TSCN:
                 else:
                     self.tscn.cme.load_state_dict(cme)
                     self.tscn.csr.load_state_dict(csr)
+
+        if self.infer:
+            print("################ writing inference files ... ################")
+            for sn in tqdm.tqdm(self.test_sn):
+                self.inference(src_pth=sn, dst_pth=self.infer_pth,)
+
+        if self.estoi:
+            print("################ computing ESTOI ... ################")
+            for sd, sn in tqdm.tqdm(zip(self.test_sd, self.test_sn), total=len(self.test_sd)):
+                self.get_estoi(noisy_file=sn, clean_file=sd, infer_pth=self.infer_pth)
 
     def train_CME(self, loader, val_loader=None):
         # best_loss is a random number
@@ -472,34 +498,23 @@ class TSCN:
         write(os.path.join(dst_pth, filename), self.sr, np.array(infer_signal).astype(np.float32))
 
     def get_estoi(
-            self, noisy_files, clean_files,
-            infer_pth="/home/jongmin/train/infer",
+            self, noisy_file, clean_file, infer_pth,
             sr=16000
     ):
-        infer_files = glob.glob(os.path.join(infer_pth, "*.wav"))
-        loader = tqdm.tqdm(noisy_files)
 
-        dx_total = []
-        dpred_total = []
+        filename = noisy_file.split("/")[-1]
+        inferfile = os.path.join(infer_pth, filename)
 
-        print("################ computing ESTOI ... ################")
+        x, sr = librosa.load(noisy_file, sr=sr)
+        y, sr = librosa.load(clean_file, sr=sr)
+        pred, sr = librosa.load(inferfile, sr=sr)
 
-        for noisy, clean in tqdm.tqdm(zip(noisy_files, clean_files), total=len(noisy_files)):
-            filename = noisy.split("/")[-1]
-            inferfile = os.path.join(infer_pth, filename)
+        if len(y) > len(pred):
+            y = y[:len(pred)]
+            x = x[:len(pred)]
 
-            x, sr = librosa.load(noisy, sr=sr)
-            y, sr = librosa.load(clean, sr=sr)
-            pred, sr = librosa.load(inferfile, sr=sr)
+        dx = stoi(y, x, sr, extended=True)
+        dpred = stoi(y, pred, sr, extended=True)
 
-            if len(y) > len(pred):
-                y = y[:len(pred)]
-                x = x[:len(pred)]
-
-            dx = stoi(y, x, sr, extended=True)
-            dpred = stoi(y, pred, sr, extended=True)
-            dx_total.append(dx)
-            dpred_total.append(dpred)
-
-        print('dx_avg =', sum(dx_total) / len(infer_files))
-        print('dpred_avg =', sum(dpred_total) / len(infer_files))
+        print('dx estoi =', dx)
+        print('dpred estoi =', dpred)
