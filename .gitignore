@@ -1,2 +1,8 @@
 models/*
 !models/dump.txt
+
+dataloader/*
+!dataloader/dump.txt
+
+utils/*
+!utils/dump.txt
