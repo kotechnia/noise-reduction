@@ -10,6 +10,13 @@ utils/*
 # dev jupyter
 *.ipynb
 
+# jupyter and python 
 **/.ipynb_checkpoints/
 **/__pycache__/
+
+# test directory
 temp/
+
+# test speech sound
+**/*.raw
+**/*.wav
