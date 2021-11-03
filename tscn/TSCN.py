@@ -15,7 +15,7 @@ from torchaudio.transforms import Spectrogram
 from copy import deepcopy
 from pathlib import Path
 from dataloader.DataLoader import DataLoader as DB
-from dataset import TscnDataset
+from tscn.dataset import TscnDataset
 from scipy.io.wavfile import write
 from pystoi import stoi
 
@@ -66,10 +66,9 @@ class TSCN_Module(nn.Module):
 class TSCN:
     def __init__(
             self, weight_pth="/home/jongmin/train/weights",
-            infer_pth="/home/jongmin/train/infer", infer_len=0,
             transfer=False,
             train=True, val=True,
-            infer=True, estoi=True, model_select=None,
+            model_select=None,
             sr=16000, batch_size=6,
             cme_epochs=400, cme_lr=0.001,
             finetuning_epochs=40, finetuning_lr=0.0001,
@@ -78,20 +77,34 @@ class TSCN:
             n_fft=320, win_len=320, loss_weight_coefficient=0.1, multi=False,
             sec=30, cutoff=False,
             all_data=True, db_update=False, database_path="",
-            cme_filename="TSCN_CME.pth", csr_filename="TSCN_csr.pth",
-            train_limit=None, val_limit=None, test_limit=None
+            cme_filename="TSCN_CME.pth", csr_filename="TSCN_CSR.pth"
                  ):
 
         # parameter setup
         self.tscn = TSCN_Module(device=device, multi=multi).to(device)
         self.device = device
         self.multi = multi
+        self.transfer = transfer  # if true, loads the pretrained model weights
+
+        # path settings
+        self.weight_pth = weight_pth  # path to weight file
+        self.cme_filename = cme_filename  # filename for CME weights
+        self.csr_filename = csr_filename  # filename for CSR weights
+
+        # make sure that the paths exists
+        Path(self.weight_pth).mkdir(parents=True, exist_ok=True)
+
+        # load pretrained weights
+        if self.transfer:
+            if self.multi:
+                self.tscn.cme.module.load_state_dict(torch.load(os.path.join(self.weight_pth, self.cme_filename)))
+                self.tscn.csr.module.load_state_dict(torch.load(os.path.join(self.weight_pth, self.csr_filename)))
+            else:
+                self.tscn.cme.load_state_dict(torch.load(os.path.join(self.weight_pth, self.cme_filename)))
+                self.tscn.csr.load_state_dict(torch.load(os.path.join(self.weight_pth, self.csr_filename)))
 
         self.train = train  # if true, trains the network
         self.val = val  # if true, uses validation data when training
-        self.infer = infer  # if true, gets the prediction of the networks test data
-        self.transfer = transfer  # if true, loads the pretrained model weights
-        self.estoi = estoi  # if true, gets the ESTOI of the test data
 
         # selects which model to train
         # options = "cme", "finetune", "csr", None
@@ -101,12 +114,6 @@ class TSCN:
         self.sr = sr  # sampling rate
         self.sec = sec  # the length of training data in seconds
         self.cutoff = cutoff  # if true, cuts off the remainder which is smaller than sec
-
-        self.weight_pth = weight_pth  # path to weight file
-        self.infer_pth = infer_pth  # path where to save the predicted output
-        self.infer_len = infer_len  # the number of files to predict, if 0 predicts the entire test data
-        self.cme_filename = cme_filename  # filename for CME weights
-        self.csr_filename = csr_filename  # filename for CSR weights
 
         # epochs
         self.cme_epochs = cme_epochs
@@ -131,67 +138,10 @@ class TSCN:
         self.db_update = db_update  # if true, updates DB's training flag
         self.database_path = database_path  # path to DB setting file
 
-        # number of data to use
-        self.train_limit = train_limit
-        self.val_limit = val_limit
-        self.test_limit = test_limit
-
         self.n_fft = n_fft  # points for FFT
         self.win_len = win_len  # window length of Hamming window
 
-        # self.train_dataloader = DB('TSCN',
-        #                       train_val_test='TR',
-        #                       limit=self.train_limit,
-        #                       all_data=self.all_data,
-        #                       db_update=self.db_update,
-        #                       database_path=self.database_path)
-        # self.val_dataloader = DB('TSCN',
-        #                     train_val_test='VA',
-        #                     limit=self.val_limit,
-        #                     all_data=self.all_data,
-        #                     db_update=self.db_update,
-        #                     database_path=self.database_path)
-        # self.test_dataloader = DB('TSCN',
-        #                      train_val_test='TE',
-        #                      limit=self.test_limit,
-        #                      all_data=self.all_data,
-        #                      db_update=self.db_update,
-        #                      database_path=self.database_path)
-        #
-        # if self.train:
-        #     self.train_sd = [s for s, _ in self.train_dataloader]
-        #     self.train_sn = [n for _, n in self.train_dataloader]
-        #     trainset = TscnDataset(sd=self.train_sd, sn=self.train_sn,
-        #                             n_fft=self.n_fft, win_len=self.win_len)
-        #     self.train_loader = DataLoader(trainset, batch_size=self.batch_size)
-        # if self.val:
-        #     self.val_sd = [s for s, _ in self.val_dataloader]
-        #     self.val_sn = [n for _, n in self.val_dataloader]
-        #     valset = TscnDataset(sd=self.val_sd, sn=self.val_sn,
-        #                           n_fft=self.n_fft, win_len=self.win_len)
-        #     self.val_loader = DataLoader(valset, batch_size=self.batch_size)
-        # else:
-        #     self.val_loader = None
-        # if self.infer:
-        #     self.test_sd = [s for s, _ in self.test_dataloader]
-        #     self.test_sn = [n for _, n in self.test_dataloader]
-        #     testset = TscnDataset(sd=self.test_sd, sn=self.test_sn,
-        #                            n_fft=self.n_fft, win_len=self.win_len)
-        #     self.test_loader = DataLoader(testset, batch_size=1)
-
     def fit(self, train_loader, val_loader):
-        # make sure all the paths exists
-        Path(self.weight_pth).mkdir(parents=True, exist_ok=True)
-        Path(self.infer_pth).mkdir(parents=True, exist_ok=True)
-
-        # load pretrained weights
-        if self.transfer:
-            if self.multi:
-                self.tscn.cme.module.load_state_dict(torch.load(os.path.join(self.weight_pth, self.cme_filename)))
-                self.tscn.csr.module.load_state_dict(torch.load(os.path.join(self.weight_pth, self.csr_filename)))
-            else:
-                self.tscn.cme.load_state_dict(torch.load(os.path.join(self.weight_pth, self.cme_filename)))
-                self.tscn.csr.load_state_dict(torch.load(os.path.join(self.weight_pth, self.csr_filename)))
 
         if self.train:
             if self.model_select == None or self.model_select == "cme":
@@ -229,18 +179,6 @@ class TSCN:
                 else:
                     self.tscn.cme.load_state_dict(cme)
                     self.tscn.csr.load_state_dict(csr)
-
-        # # write inference files
-        # if self.infer:
-        #     print("################ writing inference files ... ################")
-        #     for sn in tqdm.tqdm(self.test_sn):
-        #         self.inference(src_pth=sn, dst_pth=self.infer_pth)
-        #
-        # # compute ESTOI
-        # if self.estoi:
-        #     print("################ computing ESTOI ... ################")
-        #     for sd, sn in tqdm.tqdm(zip(self.test_sd, self.test_sn), total=len(self.test_sd)):
-        #         self.get_estoi(noisy_file=sn, clean_file=sd, infer_pth=self.infer_pth)
 
     def train_CME(self, loader, val_loader=None):
         # best_loss is a random number
