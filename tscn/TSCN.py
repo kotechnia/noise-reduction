@@ -76,7 +76,7 @@ class TSCN:
             csr_epochs=400, csr_lr=0.0001,
             device="cuda",
             n_fft=320, win_len=320, loss_weight_coefficient=0.1, multi=False,
-            sec=30, cutoff=False, remove=False,
+            sec=30, cutoff=False,
             all_data=True, db_update=False, database_path="",
             cme_filename="TSCN_CME.pth", csr_filename="TSCN_csr.pth",
             train_limit=None, val_limit=None, test_limit=None
@@ -101,7 +101,6 @@ class TSCN:
         self.sr = sr  # sampling rate
         self.sec = sec  # the length of training data in seconds
         self.cutoff = cutoff  # if true, cuts off the remainder which is smaller than sec
-        self.remove = remove  # if true, removes all the previously generated data
 
         self.weight_pth = weight_pth  # path to weight file
         self.infer_pth = infer_pth  # path where to save the predicted output
@@ -140,47 +139,47 @@ class TSCN:
         self.n_fft = n_fft  # points for FFT
         self.win_len = win_len  # window length of Hamming window
 
-        self.train_dataloader = DB('TSCN',
-                              train_val_test='TR',
-                              limit=self.train_limit,
-                              all_data=self.all_data,
-                              db_update=self.db_update,
-                              database_path=self.database_path)
-        self.val_dataloader = DB('TSCN',
-                            train_val_test='VA',
-                            limit=self.val_limit,
-                            all_data=self.all_data,
-                            db_update=self.db_update,
-                            database_path=self.database_path)
-        self.test_dataloader = DB('TSCN',
-                             train_val_test='TE',
-                             limit=self.test_limit,
-                             all_data=self.all_data,
-                             db_update=self.db_update,
-                             database_path=self.database_path)
+        # self.train_dataloader = DB('TSCN',
+        #                       train_val_test='TR',
+        #                       limit=self.train_limit,
+        #                       all_data=self.all_data,
+        #                       db_update=self.db_update,
+        #                       database_path=self.database_path)
+        # self.val_dataloader = DB('TSCN',
+        #                     train_val_test='VA',
+        #                     limit=self.val_limit,
+        #                     all_data=self.all_data,
+        #                     db_update=self.db_update,
+        #                     database_path=self.database_path)
+        # self.test_dataloader = DB('TSCN',
+        #                      train_val_test='TE',
+        #                      limit=self.test_limit,
+        #                      all_data=self.all_data,
+        #                      db_update=self.db_update,
+        #                      database_path=self.database_path)
+        #
+        # if self.train:
+        #     self.train_sd = [s for s, _ in self.train_dataloader]
+        #     self.train_sn = [n for _, n in self.train_dataloader]
+        #     trainset = TscnDataset(sd=self.train_sd, sn=self.train_sn,
+        #                             n_fft=self.n_fft, win_len=self.win_len)
+        #     self.train_loader = DataLoader(trainset, batch_size=self.batch_size)
+        # if self.val:
+        #     self.val_sd = [s for s, _ in self.val_dataloader]
+        #     self.val_sn = [n for _, n in self.val_dataloader]
+        #     valset = TscnDataset(sd=self.val_sd, sn=self.val_sn,
+        #                           n_fft=self.n_fft, win_len=self.win_len)
+        #     self.val_loader = DataLoader(valset, batch_size=self.batch_size)
+        # else:
+        #     self.val_loader = None
+        # if self.infer:
+        #     self.test_sd = [s for s, _ in self.test_dataloader]
+        #     self.test_sn = [n for _, n in self.test_dataloader]
+        #     testset = TscnDataset(sd=self.test_sd, sn=self.test_sn,
+        #                            n_fft=self.n_fft, win_len=self.win_len)
+        #     self.test_loader = DataLoader(testset, batch_size=1)
 
-        if self.train:
-            self.train_sd = [s for s, _ in self.train_dataloader]
-            self.train_sn = [n for _, n in self.train_dataloader]
-            trainset = TscnDataset(sd=self.train_sd, sn=self.train_sn,
-                                    n_fft=self.n_fft, win_len=self.win_len)
-            self.train_loader = DataLoader(trainset, batch_size=self.batch_size)
-        if self.val:
-            self.val_sd = [s for s, _ in self.val_dataloader]
-            self.val_sn = [n for _, n in self.val_dataloader]
-            valset = TscnDataset(sd=self.val_sd, sn=self.val_sn,
-                                  n_fft=self.n_fft, win_len=self.win_len)
-            self.val_loader = DataLoader(valset, batch_size=self.batch_size)
-        else:
-            self.val_loader = None
-        if self.infer:
-            self.test_sd = [s for s, _ in self.test_dataloader]
-            self.test_sn = [n for _, n in self.test_dataloader]
-            testset = TscnDataset(sd=self.test_sd, sn=self.test_sn,
-                                   n_fft=self.n_fft, win_len=self.win_len)
-            self.test_loader = DataLoader(testset, batch_size=1)
-
-    def fit(self):
+    def fit(self, train_loader, val_loader):
         # make sure all the paths exists
         Path(self.weight_pth).mkdir(parents=True, exist_ok=True)
         Path(self.infer_pth).mkdir(parents=True, exist_ok=True)
@@ -199,7 +198,7 @@ class TSCN:
                 print("################ training CME ... ################")
 
                 # train CME
-                state_dict = self.train_CME(loader=self.train_loader, val_loader=self.val_loader)
+                state_dict = self.train_CME(loader=train_loader, val_loader=val_loader)
                 if self.multi:
                     self.tscn.cme.module.load_state_dict(state_dict)
                 else:
@@ -210,7 +209,7 @@ class TSCN:
                 self.tscn.cme.eval()
 
                 # fine tune CSR
-                state_dict = self.finetune_CSR(loader=self.train_loader, val_loader=self.val_loader)
+                state_dict = self.finetune_CSR(loader=train_loader, val_loader=val_loader)
 
                 if self.multi:
                     self.tscn.csr.module.load_state_dict(state_dict)
@@ -222,7 +221,7 @@ class TSCN:
                 self.tscn.train()
 
                 # train CSR
-                cme, csr = self.train_CSR(loader=self.train_loader, val_loader=self.val_loader)
+                cme, csr = self.train_CSR(loader=train_loader, val_loader=val_loader)
 
                 if self.multi:
                     self.tscn.cme.module.load_state_dict(cme)
@@ -231,15 +230,17 @@ class TSCN:
                     self.tscn.cme.load_state_dict(cme)
                     self.tscn.csr.load_state_dict(csr)
 
-        if self.infer:
-            print("################ writing inference files ... ################")
-            for sn in tqdm.tqdm(self.test_sn):
-                self.inference(src_pth=sn, dst_pth=self.infer_pth,)
-
-        if self.estoi:
-            print("################ computing ESTOI ... ################")
-            for sd, sn in tqdm.tqdm(zip(self.test_sd, self.test_sn), total=len(self.test_sd)):
-                self.get_estoi(noisy_file=sn, clean_file=sd, infer_pth=self.infer_pth)
+        # # write inference files
+        # if self.infer:
+        #     print("################ writing inference files ... ################")
+        #     for sn in tqdm.tqdm(self.test_sn):
+        #         self.inference(src_pth=sn, dst_pth=self.infer_pth)
+        #
+        # # compute ESTOI
+        # if self.estoi:
+        #     print("################ computing ESTOI ... ################")
+        #     for sd, sn in tqdm.tqdm(zip(self.test_sd, self.test_sn), total=len(self.test_sd)):
+        #         self.get_estoi(noisy_file=sn, clean_file=sd, infer_pth=self.infer_pth)
 
     def train_CME(self, loader, val_loader=None):
         # best_loss is a random number
@@ -442,7 +443,7 @@ class TSCN:
 
         return best_cme, best_csr
 
-    def inference(self, src_pth, dst_pth):
+    def inference(self, src_path, dst_path):
         def split_infer(filename, sec, sr=16000, cutoff=True):
             data, sr = librosa.load(filename, sr=sr)
 
@@ -467,17 +468,12 @@ class TSCN:
 
             return batches
 
-        # remove all previous data
-        if self.remove:
-            os.system(f"rm {dst_pth}/*.wav")
-
         model = TSCN_Module(device=self.device).to(self.device)
         model.cme.load_state_dict(torch.load(os.path.join(self.weight_pth, self.cme_filename), map_location=self.device))
         model.csr.load_state_dict(torch.load(os.path.join(self.weight_pth, self.csr_filename), map_location=self.device))
 
-        filename = src_pth.split("/")[-1].rstrip()
         infer_signal = []
-        noisy_batches = split_infer(src_pth.strip(), sr=self.sr, sec=self.sec, cutoff=self.cutoff)
+        noisy_batches = split_infer(src_path.strip(), sr=self.sr, sec=self.sec, cutoff=self.cutoff)
 
         for batch in noisy_batches:
             if len(batch) == 0:
@@ -495,26 +491,4 @@ class TSCN:
             infer = wave.tolist()
             infer_signal.extend(infer)
 
-        write(os.path.join(dst_pth, filename), self.sr, np.array(infer_signal).astype(np.float32))
-
-    def get_estoi(
-            self, noisy_file, clean_file, infer_pth,
-            sr=16000
-    ):
-
-        filename = noisy_file.split("/")[-1]
-        inferfile = os.path.join(infer_pth, filename)
-
-        x, sr = librosa.load(noisy_file, sr=sr)
-        y, sr = librosa.load(clean_file, sr=sr)
-        pred, sr = librosa.load(inferfile, sr=sr)
-
-        if len(y) > len(pred):
-            y = y[:len(pred)]
-            x = x[:len(pred)]
-
-        dx = stoi(y, x, sr, extended=True)
-        dpred = stoi(y, pred, sr, extended=True)
-
-        print('dx estoi =', dx)
-        print('dpred estoi =', dpred)
+        write(dst_path, self.sr, np.array(infer_signal).astype(np.float32))
