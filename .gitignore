@@ -10,3 +10,6 @@ utils/*
 # dev jupyter
 *.ipynb
 
+**/.ipynb_checkpoints/
+**/__pycache__/
+temp/
