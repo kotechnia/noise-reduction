@@ -2,19 +2,19 @@
 
 ❏ noise-reduction의 구조는 다음과 같습니다.    
 ```
-📂
-├─ 📂 dataloader (data loader)
-├─ 📂 models (NIA2021 result models)
-│   └─ 📂 tscn
-├─ 📂 share (data share for docker dicrectory)
-│   ├─ 📂 data
-│   ├─ 📉 dataset_nia2021_noise_reduction.csv (NIA2021 train_valid_test list)
-├─ 📂 tscn (tscn main module)
-├─ 📂 utils (estoi, etc)
-├─ 📄 dataset_maker.py (tscn train input csv maker sample)
-├─ 📄 denoise.py (tscn noise reduction sample)
-├─ 📄 requirements.txt
-└─ 📄 train.py (tscn train sample)
+📂noise-reduction
+├─ 📂dataloader (data loader)
+├─ 📂models (NIA2021 result models)
+├─ 📂share (data share for docker dicrectory)
+├─ 📂tscn (tscn main module)
+├─ 📂utils (estoi, etc)
+├─ 📄dataset_maker.py (tscn train input csv maker sample)
+├─ 📄denoise.py (tscn noise reduction sample)
+├─ 📄requirements.txt
+├─ 🔊sd1.wav ( sample for run denoise.py )
+├─ 🔊sn1.wav ( sample for run denoise.py )
+├─ 📉dataset_nia2021_noise_reduction.csv ( AI HUB dataset list )
+└─ 📄train.py (tscn train sample)
 ```
 
 ❏ 테스트 시스템 사양은 다음과 같습니다.    
@@ -23,7 +23,7 @@ Ubuntu 20.04
 Python 3.8.10 
 Torch 1.9.0+cu111 
 CUDA 11.1
-cuDnn 8.0.5    
+cuDnn 8.2.0    
 ```
 ❏ 사용 라이브러리 및 프로그램입니다.
 
@@ -65,9 +65,9 @@ python train.py \
 ```
 python denoise.py \
 --model=models/tscn \
---noisy=share/sn1.wav \
---denoise=share/de1.wav \
---clean=share/sd1.wav
+--noisy=sn1.wav \
+--denoise=de1.wav \
+--clean=sd1.wav
 
 python denoise.py \
 --model=models/tscn \
