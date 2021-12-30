@@ -100,4 +100,4 @@ NIA 2021 noise-reduction 데이터 총 7500h -> train 6000h valid 750h test 750h
 ❏ 훈련된 모델의 ESTOI 수치 결과입니다.  
 ||**TSCN**|
 |:--:|:--:|
-|**ESTOI**|0.76|
+|**ESTOI**|0.82|
