@@ -89,13 +89,6 @@ NIA 2021 noise-reduction 데이터 총 7500h -> train 6000h valid 750h test 750h
 ```
 ※ 전체 데이터는 [AI - HUB](https://aihub.or.kr/)에서 받을 수 있습니다.  
   
-❏ 훈련된 모델의 loss history 입니다.  
-|**TSCN**|
-|:--:|
-|![TSCN loss history](https://user-images.githubusercontent.com/65753560/146899445-347c5b6f-d34f-47e4-b7b2-97494dbb089c.png)|
-
-
-
 
 ❏ 훈련된 모델의 ESTOI 수치 결과입니다.  
 ||**TSCN**|
