@@ -2,3 +2,17 @@
 **/.ipynb_checkpoints/
 **/__pycache__/
 
+espnet_asr/mdl
+espnet_asr/.cache
+
+# backup
+backup/
+
+# model checkpoints
+models/
+
+# data
+share/
+
+# model outputs for nia
+1cycle/

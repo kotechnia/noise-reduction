@@ -20,6 +20,11 @@ from tscn.dataset import TscnDataset
 #from scipy.io.wavfile import write
 from pystoi import stoi
 import soundfile as sf
+from datetime import datetime
+
+def current_time():
+	return datetime.now().strftime("%Y%m%d-%H%M%S")
+
         
 def normalize(audio, target_level=-25):
     EPS = np.finfo(float).eps
@@ -185,7 +190,7 @@ class TSCN:
             
             if self.cme_epochs is not None:
                 print("################ training CME ... ################")
-
+                self.cme_epochs = int(self.cme_epochs)
                 # train CME
                 self.train_CME(loader=train_loader, val_loader=val_loader)
                 if self.multi:
@@ -196,6 +201,7 @@ class TSCN:
             if self.finetuning_epochs is not None:
                 print("################ finetuning CSR ... ################")
                 self.tscn.cme.eval()
+                self.finetuning_epochs = int(self.finetuning_epochs)
 
                 # fine tune CSR
                 self.finetune_CSR(loader=train_loader, val_loader=val_loader)
@@ -208,6 +214,7 @@ class TSCN:
             if self.csr_epochs is not None:
                 print("################ training CSR ... ################")
                 self.tscn.train()
+                self.csr_epochs = int(csr_epochs)
 
                 # train CSR
                 self.train_CSR(loader=train_loader, val_loader=val_loader)
@@ -233,7 +240,7 @@ class TSCN:
         
         for epoch in range(self.cme_epochs):
             self.tscn.cme.train()
-            iterator = tqdm.tqdm(loader)
+            iterator = tqdm.tqdm(loader, ascii=True)
             avg_loss = 0
             for data, label in iterator:
                 self.cme_optim.zero_grad()
@@ -247,7 +254,7 @@ class TSCN:
 
                 loss = nn.MSELoss()(output, label_m)
                 avg_loss += loss.item() / len(loader)
-                iterator.set_description(f"epoch:{epoch:3} - cme_loss:{avg_loss:.4f}, batch_loss={loss.item():.4f}")
+                iterator.set_description(f"{current_time()} epoch:{epoch:3} - cme_loss:{avg_loss:.4f}, batch_loss={loss.item():.4f}")
                 loss.backward()
                 self.cme_optim.step()
                 
@@ -258,7 +265,7 @@ class TSCN:
             if val_loader is not None:
                 with torch.no_grad():
                     self.tscn.cme.eval()
-                    iterator = tqdm.tqdm(val_loader)
+                    iterator = tqdm.tqdm(val_loader, ascii=True)
                     val_loss = 0
 
                     for data, label in iterator:
@@ -272,7 +279,7 @@ class TSCN:
                         loss = nn.MSELoss()(output, label_m)
                         val_loss += loss.item() / len(val_loader)
                         iterator.set_description(
-                            f"epoch:{epoch:3} - valid cme_loss:{val_loss:.4f}, batch_loss={loss.item():.4f}")
+                            f"{current_time()} epoch:{epoch:3} - valid cme_loss:{val_loss:.4f}, batch_loss={loss.item():.4f}")
                         
                 val_log_cme.append(val_loss)        
                 val_log_csr.append(None)
@@ -322,7 +329,7 @@ class TSCN:
 
         for epoch in range(self.finetuning_epochs):
             self.tscn.csr.train()
-            iterator = tqdm.tqdm(loader)
+            iterator = tqdm.tqdm(loader, ascii=True)
             avg_loss = 0
             cme_avg = 0
             for data, label in iterator:
@@ -342,7 +349,7 @@ class TSCN:
 
                 avg_loss += loss.item() / len(loader)
                 cme_avg += cme_loss.item() * 10 / len(loader)
-                iterator.set_description(f"epoch:{epoch:3} - csr_loss:{avg_loss:.4f}, cme_loss={cme_avg:.4f}")
+                iterator.set_description(f"{current_time()} epoch:{epoch:3} - csr_loss:{avg_loss:.4f}, cme_loss={cme_avg:.4f}")
                 loss.backward()
 
                 self.finetune_optim.step()
@@ -355,7 +362,7 @@ class TSCN:
                 with torch.no_grad():
                     self.tscn.csr.eval()
 
-                    iterator = tqdm.tqdm(val_loader)
+                    iterator = tqdm.tqdm(val_loader, ascii=True)
                     val_loss = 0
                     val_cme_loss = 0
                     for data, label in iterator:
@@ -375,7 +382,7 @@ class TSCN:
                         val_loss += loss.item() / len(val_loader)
                         val_cme_loss += cme_loss.item() * 10 / len(val_loader)
                         #iterator.set_description(f"epoch:{epoch:3} - validation loss:{val_loss:.4f}, batch_loss={loss.item():.4f}")
-                        iterator.set_description(f"epoch:{epoch:3} - valid csr_loss:{val_loss:.4f}, cme_loss={val_cme_loss:.4f}")
+                        iterator.set_description(f"{current_time()} epoch:{epoch:3} - valid csr_loss:{val_loss:.4f}, cme_loss={val_cme_loss:.4f}")
 
                 val_log_csr.append(val_loss)
                 val_log_cme.append(val_cme_loss)
@@ -417,7 +424,7 @@ class TSCN:
         
         for epoch in range(self.csr_epochs):
             self.tscn.train()
-            iterator = tqdm.tqdm(loader)
+            iterator = tqdm.tqdm(loader, ascii=True)
             avg_loss = 0
             cme_avg = 0
             for data, label in iterator:
@@ -437,7 +444,7 @@ class TSCN:
 
                 avg_loss += loss.item() / len(loader)
                 cme_avg += cme_loss.item() * 10 / len(loader)
-                iterator.set_description(f"epoch:{epoch:3} - csr_loss:{avg_loss:.4f}, cme_loss={cme_avg:.4f}")
+                iterator.set_description(f"{current_time()} epoch:{epoch:3} - csr_loss:{avg_loss:.4f}, cme_loss={cme_avg:.4f}")
                 loss.backward()
 
                 self.csr_optim.step()
@@ -450,7 +457,7 @@ class TSCN:
                 with torch.no_grad():
                     self.tscn.eval()
 
-                    iterator = tqdm.tqdm(val_loader)
+                    iterator = tqdm.tqdm(val_loader, ascii=True)
                     val_loss = 0
                     val_cme_loss = 0
                     
@@ -472,7 +479,7 @@ class TSCN:
                         val_cme_loss += cme_loss.item() * 10 / len(val_loader)
                         
                         #iterator.set_description(f"epoch:{epoch:3} \t validation loss:{val_loss:.4f}, batch_loss={loss.item():.4f}")
-                        iterator.set_description(f"epoch:{epoch:3} - valid csr_loss:{val_loss:.4f}, cme_loss={val_cme_loss:.4f}")
+                        iterator.set_description(f"{current_time()} epoch:{epoch:3} - valid csr_loss:{val_loss:.4f}, cme_loss={val_cme_loss:.4f}")
                         
                 val_log_csr.append(val_loss) 
                 val_log_cme.append(val_cme_loss)

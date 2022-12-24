@@ -1,6 +1,10 @@
 import os
 import pandas as pd
 
+
+__CLEAN_COLUMN__='clean_path'
+__NOISY_COLUMN__='noisy_path'
+
 class DataLoader():
     
     def __init__(self, 
@@ -19,12 +23,15 @@ class DataLoader():
                 elif ext == '.xlsx':
                     df = pd.read_excel(path)
         
-        df.rename(columns={'clean':'sd_file_path', 'noisy':'sn_file_path'}, inplace=True)
         
-        if 'sd_file_path' not in df.columns:
+        df.rename(columns={'clean':__CLEAN_COLUMN__, 'noisy':__NOISY_COLUMN__}, inplace=True)
+        df.rename(columns={'sd_file_path':__CLEAN_COLUMN__, 'sn_file_path':__NOISY_COLUMN__}, inplace=True)
+        
+        
+        if __CLEAN_COLUMN__ not in df.columns:
             raise Exception('DataLoader Column Error')
             
-        if 'sn_file_path' not in df.columns:
+        if __NOISY_COLUMN__ not in df.columns:
             raise Exception('DataLoader Column Error')
         
         self.df = df
@@ -34,9 +41,9 @@ class DataLoader():
         return len(self.df)
 
     def __getitem__(self, i):
-        return [self.df.loc[i, 'sd_file_path'], self.df.loc[i, 'sn_file_path']]
+        return [self.df.loc[i, __CLEAN_COLUMN__], self.df.loc[i, __NOISY_COLUMN__]]
     
     def __iter__(self):
         for i in range(len(self.df)):
-            yield [self.df.loc[i, 'sd_file_path'],
-                   self.df.loc[i, 'sn_file_path']]
+            yield [self.df.loc[i, __CLEAN_COLUMN__],
+                   self.df.loc[i, __NOISY_COLUMN__]]

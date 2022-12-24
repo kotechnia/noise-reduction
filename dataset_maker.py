@@ -13,10 +13,10 @@ def sd_sn_file_match(directory_path, wav_file = '**/**.wav'):
     for i in range(len(file_list)):
         sd_file_path = file_list[i]
         dir_path, sd_file_name = os.path.split(sd_file_path)
-        sd_checker = re.sub('[^SD]', '', sd_file_name)
+        sd_checker = re.sub('[^VN]', '', sd_file_name)
 
-        if sd_checker == 'SD':
-            sn_file_name = re.sub('SD', 'SN', sd_file_name)
+        if sd_checker == 'VN':
+            sn_file_name = re.sub('VN', 'NV', sd_file_name)
             sn_file_path = os.path.join(dir_path, sn_file_name)
 
             if os.path.isfile(sd_file_path) == False:
@@ -28,6 +28,28 @@ def sd_sn_file_match(directory_path, wav_file = '**/**.wav'):
             sn_files.append(sn_file_path)
             
     df = pd.DataFrame(zip(sd_files, sn_files), columns = ['sd_file_path', 'sn_file_path'])
+    return df
+
+def filename_to_key(path, sep='_', start=0, end=-1):
+    filename = os.path.basename(path)
+    filename, ext = os.path.splitext(filename)
+    key = filename.split(sep)[start:end]
+    key = sep.join(key)
+    return key
+
+def file_match(directory_path, clean_name = '**/**_VN.wav', noisy_name='**/**_NV.wav', script_name='**/**_VN.json'):
+    
+    clean_list = glob(os.path.join(directory_path, clean_name), recursive=True)
+    noisy_list = glob(os.path.join(directory_path, noisy_name), recursive=True)
+    script_list = glob(os.path.join(directory_path, script_name), recursive=True)
+
+    df_clean_list = pd.DataFrame({'key':map(filename_to_key, clean_list), 'clean_path':clean_list})
+    df_noisy_list = pd.DataFrame({'key':map(filename_to_key, noisy_list), 'noisy_path':noisy_list})
+    df_script_list = pd.DataFrame({'key':map(filename_to_key, script_list), 'script_path':script_list})
+
+    df = pd.merge(df_clean_list, df_noisy_list, on=['key'])
+    df = pd.merge(df, df_script_list, on=['key'])
+    
     return df
 
 def train_val_test_shuffle(df, train_ratio = 0.8, test_ratio = 0.1):
@@ -55,9 +77,9 @@ def main():
     parser = argparse.ArgumentParser(description='make csv')
 
     parser.add_argument(
-        "--wav_files_dir",
-        default='share/data/',
-        help=""" default : 'share/data/' """
+        "--dataset_root",
+        default='share',
+        help=""" default : 'share' """
     )
 
     parser.add_argument(
@@ -68,14 +90,15 @@ def main():
     
     args = parser.parse_args()
     print('setting parameters')
-    if args.wav_files_dir:print('wav_files_dir : {}'.format(args.wav_files_dir))
+    if args.dataset_root:print('dataset_root : {}'.format(args.dataset_root))
     if args.csv_save_path:print('csv_save_path : {}'.format(args.csv_save_path))
     
-    df = sd_sn_file_match(args.wav_files_dir)
+    df = file_match(args.dataset_root)
     df = train_val_test_shuffle(df)
+    df.to_csv(args.csv_save_path, mode='w', header=True, index=False, encoding='utf-8-sig')
     
-    df.to_csv(args.csv_save_path, mode='w', header=True, index=False, encoding='euc-kr')
-    
+    tvt, counts = np.unique(df['train_val_test'], return_counts=True)
+    print(pd.DataFrame({"train_val_test":tvt, "count":counts}))
     
 if __name__ == '__main__':
     main()

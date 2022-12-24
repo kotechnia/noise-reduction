@@ -25,19 +25,19 @@ def main():
 
     parser.add_argument(
         "--cme_epochs", 
-        default=400,
+        default=None,
         help="""'model cme_epochs' default : --cme_epochs=None"""
     )
     
     parser.add_argument(
         "--finetune_epochs", 
-        default=60,
+        default=None,
         help="""'model finetune_epochs' default : --finetune_epochs=None"""
     )
     
     parser.add_argument(
         "--csr_epochs", 
-        default=400,
+        default=None,
         help="""'model csr_epochs' default : --csr_epochs=None"""
     )
 
@@ -71,7 +71,8 @@ def main():
     if args.preproc_path:print('preproc_path : {}'.format(args.preproc_path))
     
     
-    df_global = pd.read_csv(args.csv_file, encoding='euc-kr')    
+    #df_global = pd.read_csv(args.csv_file, encoding='euc-kr')    
+    df_global = pd.read_csv(args.csv_file, encoding='utf-8-sig')    
     df_train = df_global.loc[np.where(df_global['train_val_test'] == 'TR')].reset_index(drop=True)
     df_valid = df_global.loc[np.where(df_global['train_val_test'] == 'VA')].reset_index(drop=True)
 
@@ -116,9 +117,9 @@ def main():
     tscn_model.fit(
         train_loader=train_tscnloader,
         val_loader=valid_tscnloader,
-        cme_epochs=int(args.cme_epochs),
-        finetuning_epochs=int(args.finetune_epochs),
-        csr_epochs=int(args.csr_epochs)
+        cme_epochs=(args.cme_epochs),
+        finetuning_epochs=(args.finetune_epochs),
+        csr_epochs=(args.csr_epochs)
     )
     
     continue_flag=True

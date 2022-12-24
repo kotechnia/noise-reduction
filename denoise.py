@@ -7,6 +7,7 @@ def main():
     import pandas as pd
     import numpy as np
     import argparse
+    from datetime import datetime
     
     parser = argparse.ArgumentParser(description='tscn helper.')
 
@@ -49,6 +50,7 @@ def main():
     
     args = parser.parse_args()
     print('tscn setting parameters')
+    print(f'current time : {datetime.now().strftime("%Y%m%d-%H%M%S")}')
     if args.model:print('model : {}'.format(args.model))
     if args.noisy:print('noisy : {}'.format(args.noisy))    
     if args.denoise:print('denoise : {}'.format(args.denoise)) 
@@ -76,7 +78,7 @@ def main():
             
     else:
         
-        df_global = pd.read_csv(args.csv_file, encoding='euc-kr')    
+        df_global = pd.read_csv(args.csv_file, encoding='utf-8-sig')
         df_test = df_global.loc[np.where(df_global['train_val_test'] == 'TE')].reset_index(drop=True)
         
         test_dataloader = DataLoader(df=df_test)

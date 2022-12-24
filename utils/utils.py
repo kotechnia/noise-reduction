@@ -11,6 +11,7 @@ import re
 
 import soundfile as sf
 from datetime import datetime
+from dataloader.DataLoader import __CLEAN_COLUMN__, __NOISY_COLUMN__
 
 
 def file_checker(path_list):
@@ -69,35 +70,36 @@ def denoise_estoi(
     os.makedirs(output_dir, exist_ok=True, mode=0o0777)
     os.umask(oldmask)
     
-    df = pd.DataFrame([], columns=['sd_file_path', 'sn_file_path', 'de_file_path', 'estoi'])
-
+    test_info = []
     if tqdm is not None:
-        _dataloader = tqdm(dataloader)
+        _dataloader = tqdm(dataloader, ascii=True)
     else:
         _dataloader = dataloader
     
-    for sd_file_path, sn_file_path in _dataloader:
+    for clean_path, noisy_path in _dataloader:
 
-        sn_file_name = sn_file_path.split('/')[-1]
-        de_file_path = os.path.join(output_dir, sn_file_name)
+        noisy_name = noisy_path.split('/')[-1]
+        denoise_path = os.path.join(output_dir, noisy_name)
+        denoise_path = os.path.abspath(denoise_path)
 
         denoise_module(
-            src_path = sn_file_path,
-            dst_path = de_file_path,
+            src_path = noisy_path,
+            dst_path = denoise_path,
         )
         
         estoi = calc_estoi(
-            sd_file_path, 
-            de_file_path
+            clean_path, 
+            denoise_path
         )
-        
-        data = {'sd_file_path':sd_file_path,
-                'sn_file_path':sn_file_path,
-                'de_file_path':de_file_path,
+
+        data = {__CLEAN_COLUMN__:clean_path,
+                __NOISY_COLUMN__:noisy_path,
+                'denoise_path':denoise_path,
                 'estoi':estoi}
-        df = df.append(pd.DataFrame([data]), ignore_index=True)
-        
-    df.to_csv(os.path.join(output_dir, 'info.csv'), mode='w', header=True, index=False, encoding='euc-kr')            
+        test_info.append(data)
+    
+    df = pd.DataFrame(test_info)
+    df.to_csv(os.path.join(output_dir, 'info.csv'), mode='w', header=True, index=False, encoding='utf-8-sig')            
     return df
 
 def trans_path(src_path, trans = {'./':'./'}):
@@ -160,9 +162,9 @@ class DivideWAVFile():
             
         
     def __iter__(self):
-        for i in self.tqdm(range(len(self.df))):
-            sd_file_path = self.df.loc[i, 'sd_file_path']
-            sn_file_path = self.df.loc[i, 'sn_file_path']
+        for i in self.tqdm(range(len(self.df)), ascii=True):
+            sd_file_path = self.df.loc[i, __CLEAN_COLUMN__]
+            sn_file_path = self.df.loc[i, __NOISY_COLUMN__]
             
             sd_signal, sd_sr = librosa.load(sd_file_path, sr=self.sr)
             sn_signal, sn_sr = librosa.load(sn_file_path, sr=self.sr)
@@ -193,10 +195,10 @@ class DivideWAVFile():
                 self.wav_file_save(_sn_file_path, _sn_signal, self.sr)
                 
                 if os.path.isfile(self.csv_file_path):
-                    df_temp = pd.DataFrame(zip([_sd_file_path], [_sn_file_path]), columns=['sd_file_path', 'sn_file_path'])
+                    df_temp = pd.DataFrame(zip([_sd_file_path], [_sn_file_path]), columns=[__CLEAN_COLUMN__, __NOISY_COLUMN__])
                     df_temp.to_csv(self.csv_file_path, mode='a', header=False, index=False)            
                 else:
-                    df_temp = pd.DataFrame(zip([_sd_file_path], [_sn_file_path]), columns=['sd_file_path', 'sn_file_path'])
+                    df_temp = pd.DataFrame(zip([_sd_file_path], [_sn_file_path]), columns=[__CLEAN_COLUMN__, __NOISY_COLUMN__])
                     df_temp.to_csv(self.csv_file_path, mode='w', header=True, index=False)            
                 
                 #print(f'{sd_file_path}')
@@ -225,10 +227,10 @@ class DivideWAVFile():
             self.wav_file_save(_sn_file_path, _sn_signal, self.sr)
             
             if os.path.isfile(self.csv_file_path):
-                df_temp = pd.DataFrame(zip([_sd_file_path], [_sn_file_path]), columns=['sd_file_path', 'sn_file_path'])
+                df_temp = pd.DataFrame(zip([_sd_file_path], [_sn_file_path]), columns=[__CLEAN_COLUMN__, __NOISY_COLUMN__])
                 df_temp.to_csv(self.csv_file_path, mode='a', header=False, index=False)            
             else:
-                df_temp = pd.DataFrame(zip([_sd_file_path], [_sn_file_path]), columns=['sd_file_path', 'sn_file_path'])
+                df_temp = pd.DataFrame(zip([_sd_file_path], [_sn_file_path]), columns=[__CLEAN_COLUMN__, __NOISY_COLUMN__])
                 df_temp.to_csv(self.csv_file_path, mode='w', header=True, index=False)            
                 
             #print(f'{sd_file_path}')
