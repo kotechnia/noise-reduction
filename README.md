@@ -106,3 +106,8 @@ NIA 2022 noise-reduction 데이터 총 2082h -> train 1666h valid 208h test 208h
 |:--:|:--:|
 |**ESTOI**|0.85|
 |**F1-score-error-rate**|0.18|
+
+
+
+# Reference
+[espnet-asr](https://github.com/hchung12/espnet-asr)
