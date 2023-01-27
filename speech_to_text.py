@@ -224,7 +224,7 @@ def main():
 
         df_dataset.loc[i, 'f1_noisy'] = f1_noisy
         df_dataset.loc[i, 'f1_denoise'] = f1_denoise
-        df_dataset.loc[i, 'f1_error_rate'] = (f1_dnoise - f1_noisy) / (1 - f1_noisy)
+        df_dataset.loc[i, 'f1_error_rate'] = (f1_denoise - f1_noisy) / (1 - f1_noisy)
 
     df_dataset.to_csv(args.results_path, index=False, encoding='utf-8-sig')
 
